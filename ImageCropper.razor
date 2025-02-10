@@ -1,0 +1,167 @@
+﻿@using Cropper.Blazor.Extensions
+@using Cropper.Blazor.Models;
+@using Cropper.Blazor.Events;
+@using Microsoft.AspNetCore.Components.Forms;
+@using Cropper.Blazor.Components;
+@using Cropper.Blazor.Events.CropEvent;
+@using Radzen;
+@using Microsoft.JSInterop;
+@using Radzen.Blazor;
+@using AlphaX.Blazor.Components.ImageData;
+
+@namespace AlphaX.Blazor.Components
+
+<RadzenSplitter style="max-height: 450px;">
+    <RadzenSplitterPane Size="80%" Min="30px" Max="80%">
+        <div class="img-container">
+            <CropperComponent Class="big-img" Src="@Src" ErrorLoadImageClass="cropper-error-load center"
+                IsAvailableInitCropper="@IsAvailableInitCropper" IsErrorLoadImage="@IsErrorLoadImage"
+                OnErrorLoadImageEvent="OnErrorLoadImageEvent" @ref="CropperComponent"
+                Options="new Cropper.Blazor.Models.Options()" style="max-height: 400px;" />
+        </div>
+
+        <div style="position: relative; display: inline-block; margin-top: 10px;">
+            <InputFile id="imageRebuildInput" OnChange="RebuildImageAsync" accept="image/*"
+                style="opacity: 0; position: absolute; width: 100%; height: 100%;" />
+            <RadzenButton Text="Upload Image" Click="TriggerFileUpload" Icon="upload"
+                ButtonStyle="ButtonStyle.Secondary" />
+        </div>
+
+        <RadzenButton Text="Reset Image" Click="@ResetImage" Style="margin-top: 10px;" Icon="reset_image"
+            Disabled="!isFileSelected" />
+        <RadzenButton Text="Crop Image" Click="@GetCroppedCanvasDataURLAsync" Style="margin-top: 10px;" Icon="crop"
+            ButtonStyle="ButtonStyle.Success" Disabled="!isFileSelected" />
+    </RadzenSplitterPane>
+    <RadzenSplitterPane>
+        <RadzenImage Src="@PreviewSrc" Style="max-width: 100%;" Visible="@(PreviewSrc != string.Empty)" />
+    </RadzenSplitterPane>
+</RadzenSplitter>
+@* 
+<script>
+    window.triggerFileInput = (elementId) => {
+        document.getElementById(elementId).click();
+    };
+</script> *@
+
+@code {
+
+    [Parameter] public required ImageDataItem ImageData { get; set; }
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private Guid _inputKey = Guid.NewGuid(); // Unique key for re-rendering
+    private bool isFileSelected = false;
+
+    private bool IsErrorLoadImage { get; set; } = false;
+    private bool IsAvailableInitCropper { get; set; } = true;
+
+    private string PreviewSrc { get; set; } =
+    "data:image/png;base64,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";
+    private string Src { get; set; }
+
+    public ImageCropper()
+    {
+        Src = PreviewSrc;
+    }
+    private CropperComponent? CropperComponent;
+
+    private async Task TriggerFileUpload()
+    {
+        await JSRuntime.InvokeVoidAsync("triggerFileInput", "imageRebuildInput");
+    }
+
+    public async Task GetCroppedCanvasDataURLAsync()
+    {
+        try
+        {
+            GetCroppedCanvasOptions getCroppedCanvasOptions = new GetCroppedCanvasOptions
+            {
+                MaxHeight = 4096,
+                MaxWidth = 4096,
+                ImageSmoothingQuality = ImageSmoothingQuality.High.ToEnumString()
+            };
+
+            var croppedCanvasDataURL = await CropperComponent!.GetCroppedCanvasDataURLAsync(getCroppedCanvasOptions);
+            PreviewSrc = croppedCanvasDataURL;
+            ImageData.ImageURL = croppedCanvasDataURL.Replace("data:image/png;base64,", "");
+        }
+        catch
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error cropping image.");
+        }
+    }
+
+    private string GetContentType(string fileExtension)
+    {
+        return fileExtension.ToLower() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            _ => "application/octet-stream"
+        };
+    }
+
+    private void ResetImage()
+    {
+        isFileSelected = false; // Reset flag when clearing the input
+        _inputKey = Guid.NewGuid(); // Changing the key forces Blazor to re-render the InputFile
+        Src = string.Empty;
+        StateHasChanged();
+    }
+
+    public async Task RebuildImageAsync(InputFileChangeEventArgs inputFileChangeEventArgs)
+    {
+        try
+        {
+            isFileSelected = inputFileChangeEventArgs.File != null; // Enable buttons only if a file is selected
+
+            IBrowserFile? imageFile = inputFileChangeEventArgs.File;
+
+            if (imageFile == null)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "No file selected.");
+                return;
+            }
+
+            if (imageFile != null)
+            {
+                if (imageFile.Size > 5 * 1024 * 1024) // 5MB limit
+                {
+                    Src = null;
+                    NotificationService.Notify(NotificationSeverity.Error, "File size too large. Maximum file size is 5MB.");
+                    return;
+                }
+
+                string oldSrc = Src;
+                PreviewSrc = Src = await CropperComponent!.GetImageUsingStreamingAsync(imageFile, imageFile.Size);
+                IsAvailableInitCropper = true;
+                IsErrorLoadImage = false;
+                CropperComponent?.Destroy();
+                CropperComponent?.RevokeObjectUrlAsync(oldSrc);
+                ImageData.FileName = imageFile.Name;
+                ImageData.ImageURL = PreviewSrc.Replace("data:image/png;base64,", "");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, ex.Message);
+        }
+    }
+
+    public void OnErrorLoadImageEvent(ErrorEventArgs errorEventArgs)
+    {
+        IsErrorLoadImage = true;
+        Destroy();
+        StateHasChanged();
+    }
+
+    private void Destroy()
+    {
+        CropperComponent?.Destroy();
+        if (ImageData != null && !string.IsNullOrEmpty(ImageData.ImageURL))
+        {
+            CropperComponent?.RevokeObjectUrlAsync(ImageData.ImageURL);
+        }
+    }
+}
