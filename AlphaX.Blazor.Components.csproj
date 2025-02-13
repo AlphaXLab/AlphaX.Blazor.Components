@@ -5,11 +5,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RazorComponentClassLib>true</RazorComponentClassLib>
-  </PropertyGroup>
 
+    <PackageId>AlphaX.Blazor.Components.ImageCropper</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Kyaw Sithu</Authors>
+    <Description>This Blazor-based package integrates Radzen components with the powerful image cropping functionalities of CropperBlazor and Cropper.js. It offers a seamless and intuitive image cropping experience for Blazor applications, providing developers with ready-to-use components to implement and customize image editing features in their web applications.</Description>
+    <PackageTags>Blazor;Blazor Cropper; Cropper;</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+  </PropertyGroup>
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />
+    <None Include="README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
   <ItemGroup>
