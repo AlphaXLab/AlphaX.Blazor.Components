@@ -28,9 +28,9 @@ This Blazor-based package extends Radzen.Blazor components with image cropping f
       cursor: pointer; box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 5px;" />
 
 @code{
-	private ImageDataItem imageData;
+  private ImageDataItem imageData;
 
-	 protected override async Task OnInitializedAsync()
+  protected override async Task OnInitializedAsync()
   {
       imageData = new ImageDataItem();
 			//other initialization code...
